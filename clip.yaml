@@ -1,0 +1,5 @@
+name: todo
+version: "1.0.0"
+description: GTD task manager — inbox, next actions, projects, someday/maybe
+label: Todo
+hasWeb: true

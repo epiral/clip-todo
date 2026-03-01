@@ -1,0 +1,9 @@
+#!/bin/bash
+DB="$(dirname "$0")/../data/todo.db"
+INPUT=$(cat)
+NAME=$(python3 -c "import sys,json; print(json.loads(sys.argv[1])['name'])" "$INPUT")
+COLOR=$(python3 -c "import sys,json; print(json.loads(sys.argv[1]).get('color','#8b6f47'))" "$INPUT")
+AREA=$(python3 -c "import sys,json; print(json.loads(sys.argv[1]).get('area','work'))" "$INPUT")
+NOW=$(date +%s)
+ID=$(sqlite3 "$DB" "INSERT INTO projects (name, color, area, created_at) VALUES ('$(echo "$NAME" | sed "s/'/''/g")', '$COLOR', '$AREA', $NOW); SELECT last_insert_rowid();")
+echo "{\"id\":$ID}"
