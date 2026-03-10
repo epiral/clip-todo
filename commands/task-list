@@ -2,7 +2,7 @@
 import sys, json, sqlite3, os, time
 
 try:
-    raw = sys.stdin.read(); data = json.loads(raw) if raw.strip() else {}
+    import select; raw = sys.stdin.read() if select.select([sys.stdin], [], [], 0.1)[0] else ""; data = json.loads(raw) if raw.strip() else {}
 except:
     data = {}
 
