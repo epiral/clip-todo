@@ -1,6 +1,0 @@
-#!/bin/bash
-DB="$(dirname "$0")/../data/todo.db"
-INPUT=$(cat)
-ID=$(python3 -c "import sys,json; print(json.loads(sys.argv[1])['id'])" "$INPUT")
-sqlite3 "$DB" "UPDATE tasks SET status = 'inbox', completed_at = NULL WHERE id = $ID"
-echo '{"ok":true}'

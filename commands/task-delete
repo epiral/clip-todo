@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+import sys, json, sqlite3, os
+
+raw = sys.stdin.read(); data = json.loads(raw) if raw.strip() else {}
+
+if "id" not in data:
+    print(json.dumps({"error": "id is required"}, ensure_ascii=False))
+    sys.exit(1)
+
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "todo.db")
+conn = sqlite3.connect(db_path)
+
+task_id = data["id"]
+c = conn.cursor()
+c.execute("DELETE FROM tasks WHERE id = ?", [task_id])
+conn.commit()
+
+if c.rowcount == 0:
+    print(json.dumps({"error": "task not found"}, ensure_ascii=False))
+    conn.close()
+    sys.exit(1)
+
+conn.close()
+print(json.dumps({"deleted": True, "id": task_id}, ensure_ascii=False))

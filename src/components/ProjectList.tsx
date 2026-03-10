@@ -1,30 +1,27 @@
-import { useState } from "react";
-import type { Project } from "../hooks/useProjects";
-import type { Task } from "../hooks/useTasks";
-import TaskCard from "./TaskCard";
+import { useState } from 'react';
+import { ArrowLeft, Plus } from 'lucide-react';
+import type { Project, Task } from '../types';
+import TaskCard from './TaskCard';
 
 interface Props {
   projects: Project[];
   tasks: Task[];
+  somedayTasks?: Task[];
   onAddProject: (name: string) => void;
   onToggleTask: (id: number) => void;
   onSelectTask: (task: Task) => void;
 }
 
 export default function ProjectList({
-  projects,
-  tasks,
-  onAddProject,
-  onToggleTask,
-  onSelectTask,
+  projects, tasks, somedayTasks = [], onAddProject, onToggleTask, onSelectTask,
 }: Props) {
   const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState('');
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
   const taskCountMap = new Map<number, number>();
   for (const t of tasks) {
-    if (t.project_id != null && t.status !== "done") {
+    if (t.project_id != null && t.status !== 'done') {
       taskCountMap.set(t.project_id, (taskCountMap.get(t.project_id) || 0) + 1);
     }
   }
@@ -32,31 +29,34 @@ export default function ProjectList({
   if (selectedProject != null) {
     const project = projects.find((p) => p.id === selectedProject);
     const projectTasks = tasks.filter(
-      (t) => t.project_id === selectedProject && t.status !== "done"
+      (t) => t.project_id === selectedProject && t.status !== 'done'
     );
+    const isSprint = project?.area === 'sprint';
     return (
-      <div className="project-detail-view">
-        <button className="back-btn" onClick={() => setSelectedProject(null)}>
-          &larr; Projects
+      <div>
+        <button
+          className="flex items-center gap-1 text-foreground text-[10px] font-bold uppercase tracking-widest bg-transparent border border-border px-2 py-1 cursor-pointer mb-6 hover:bg-surface-hover"
+          onClick={() => setSelectedProject(null)}
+        >
+          <ArrowLeft size={10} />
+          Back to Index
         </button>
-        <h2 className="project-detail-title">
+        <h2 className="text-3xl font-serif font-bold flex items-center gap-3 mb-6 tracking-tight">
+          {isSprint && <span className="text-sm">⚡</span>}
           <span
-            className="project-color-dot"
-            style={{ background: project?.color || "#8b6f47" }}
+            className="w-1 h-8 shrink-0"
+            style={{ background: isSprint ? 'var(--color-sprint)' : (project?.color || 'var(--color-foreground)') }}
           />
-          {project?.name || "Project"}
+          {project?.name || 'Project'}
         </h2>
         {projectTasks.length === 0 ? (
-          <p className="empty-hint">No active tasks</p>
+          <div className="border-t border-border pt-8 text-center">
+            <p className="text-muted/60 text-sm italic">No active tasks</p>
+          </div>
         ) : (
-          <div className="task-list">
+          <div className="border-t border-border">
             {projectTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                task={t}
-                onToggle={onToggleTask}
-                onSelect={onSelectTask}
-              />
+              <TaskCard key={t.id} task={t} isSprint={isSprint} onToggle={onToggleTask} onSelect={onSelectTask} />
             ))}
           </div>
         )}
@@ -65,54 +65,78 @@ export default function ProjectList({
   }
 
   return (
-    <div className="project-list-view">
+    <div>
       {projects.length === 0 ? (
-        <p className="empty-hint">No projects yet</p>
+        <div className="border-t border-border pt-8 text-center">
+          <p className="text-muted/60 text-sm italic">No projects yet</p>
+        </div>
       ) : (
-        <div className="project-cards">
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              className="project-card"
-              onClick={() => setSelectedProject(p.id)}
-            >
-              <span
-                className="project-color-dot"
-                style={{ background: p.color }}
-              />
-              <span className="project-card-name">{p.name}</span>
-              <span className="project-card-count">
-                {taskCountMap.get(p.id) || 0}
-              </span>
-            </button>
-          ))}
+        <div className="border-t border-border">
+          {projects.map((p) => {
+            const isSprint = p.area === 'sprint';
+            return (
+              <button
+                key={p.id}
+                className={`flex items-center gap-3 w-full px-3 py-3.5 bg-transparent border-b border-border last:border-b-0 cursor-pointer text-left text-foreground hover:bg-surface-hover transition-colors ${
+                  isSprint ? 'border-l-[2px] border-l-sprint' : ''
+                }`}
+                onClick={() => setSelectedProject(p.id)}
+              >
+                {isSprint && <span className="text-[10px] leading-none shrink-0">⚡</span>}
+                <span
+                  className="w-1 h-4 shrink-0"
+                  style={{ background: isSprint ? 'var(--color-sprint)' : p.color }}
+                />
+                <span className="flex-1 font-bold text-sm uppercase tracking-wide">{p.name}</span>
+                <span className="text-muted font-mono text-[10px]">{taskCountMap.get(p.id) || 0}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {somedayTasks.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted/60">将来也许</h3>
+            <div className="h-[1px] flex-1 bg-border" />
+          </div>
+          <div className="opacity-70">
+            {somedayTasks.map((t) => (
+              <TaskCard key={t.id} task={t} onToggle={onToggleTask} onSelect={onSelectTask} />
+            ))}
+          </div>
         </div>
       )}
 
       {adding ? (
-        <div className="project-add-form">
+        <div className="mt-6 border border-foreground">
           <input
-            className="project-add-input"
+            className="w-full px-3 py-3 text-sm bg-transparent text-foreground outline-none placeholder:text-muted/50"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Project name"
+            placeholder="PROJECT NAME..."
             autoFocus
             onKeyDown={(e) => {
-              if (e.key === "Enter" && newName.trim()) {
+              if (e.key === 'Enter' && newName.trim()) {
                 onAddProject(newName);
-                setNewName("");
+                setNewName('');
                 setAdding(false);
               }
-              if (e.key === "Escape") {
-                setNewName("");
+              if (e.key === 'Escape') {
+                setNewName('');
                 setAdding(false);
               }
             }}
           />
         </div>
       ) : (
-        <button className="project-add-btn" onClick={() => setAdding(true)}>
-          + New Project
+        <button
+          className="w-full mt-6 py-3 text-[10px] font-bold text-foreground uppercase tracking-[0.2em] border border-border bg-transparent hover:bg-foreground hover:text-background cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+          onClick={() => setAdding(true)}
+        >
+          <Plus size={12} />
+          Initialize Project
         </button>
       )}
     </div>

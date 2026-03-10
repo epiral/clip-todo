@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+import sys, json, sqlite3, os, time
+from datetime import datetime, timezone, timedelta
+
+raw = sys.stdin.read(); data = json.loads(raw) if raw.strip() else {}
+
+if "title" not in data or not data["title"]:
+    print(json.dumps({"error": "title is required"}, ensure_ascii=False))
+    sys.exit(1)
+
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "todo.db")
+conn = sqlite3.connect(db_path)
+conn.row_factory = sqlite3.Row
+
+title = data["title"]
+project_id = data.get("project_id")
+context = data.get("context", "")
+priority = data.get("priority", 1)
+status = data.get("status", "inbox")
+notes = data.get("notes", "")
+waiting_for = data.get("waiting_for", "")
+created_at = int(time.time())
+
+# 如果创建时就是 done 状态，自动设置 completed_at
+completed_at = None
+if data.get('status') == 'done' and 'completed_at' not in data:
+    completed_at = int(time.time())
+
+due_date = None
+if data.get("due_date"):
+    tz = timezone(timedelta(hours=8))
+    dt = datetime.strptime(data["due_date"], "%Y-%m-%d").replace(tzinfo=tz)
+    due_date = int(dt.timestamp())
+
+c = conn.cursor()
+c.execute(
+    "INSERT INTO tasks (title, project_id, context, priority, due_date, status, notes, waiting_for, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [title, project_id, context, priority, due_date, status, notes, waiting_for, created_at, completed_at]
+)
+conn.commit()
+task_id = c.lastrowid
+c.execute("SELECT * FROM tasks WHERE id = ?", [task_id])
+row = dict(c.fetchone())
+conn.close()
+print(json.dumps(row, ensure_ascii=False))

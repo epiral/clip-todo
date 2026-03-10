@@ -1,9 +1,0 @@
-#!/bin/bash
-DB="$(dirname "$0")/../data/todo.db"
-INPUT=$(cat)
-TITLE=$(python3 -c "import sys,json; d=json.loads(sys.argv[1]); print(d['title'])" "$INPUT")
-STATUS=$(python3 -c "import sys,json; d=json.loads(sys.argv[1]); print(d.get('status','inbox'))" "$INPUT")
-PRIORITY=$(python3 -c "import sys,json; d=json.loads(sys.argv[1]); print(d.get('priority',1))" "$INPUT")
-NOW=$(date +%s)
-ID=$(sqlite3 "$DB" "INSERT INTO tasks (title, status, priority, created_at) VALUES ('$(echo "$TITLE" | sed "s/'/''/g")', '$STATUS', $PRIORITY, $NOW); SELECT last_insert_rowid();")
-echo "{\"id\":$ID}"

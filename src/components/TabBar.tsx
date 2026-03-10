@@ -1,17 +1,19 @@
-export type TabId = "inbox" | "today" | "next" | "projects" | "someday";
+import { Inbox, Sun, Zap, FolderOpen, ClipboardList } from 'lucide-react';
+
+export type TabId = 'inbox' | 'today' | 'next' | 'projects' | 'logbook';
 
 interface TabDef {
   id: TabId;
-  icon: string;
+  icon: typeof Inbox;
   label: string;
 }
 
 const TABS: TabDef[] = [
-  { id: "inbox", icon: "\u{1F4E5}", label: "Inbox" },
-  { id: "today", icon: "\u2600\uFE0F", label: "Today" },
-  { id: "next", icon: "\u26A1", label: "Next" },
-  { id: "projects", icon: "\u{1F4C1}", label: "Projects" },
-  { id: "someday", icon: "\u{1F4A4}", label: "Someday" },
+  { id: 'inbox', icon: Inbox, label: 'Inbox' },
+  { id: 'today', icon: Sun, label: 'Today' },
+  { id: 'next', icon: Zap, label: 'Next' },
+  { id: 'projects', icon: FolderOpen, label: 'Projects' },
+  { id: 'logbook', icon: ClipboardList, label: 'Logbook' },
 ];
 
 interface Props {
@@ -22,20 +24,33 @@ interface Props {
 
 export default function TabBar({ active, onChange, badges }: Props) {
   return (
-    <nav className="tab-bar">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          className={`tab-item ${active === tab.id ? "active" : ""}`}
-          onClick={() => onChange(tab.id)}
-        >
-          <span className="tab-icon">{tab.icon}</span>
-          <span className="tab-label">{tab.label}</span>
-          {badges?.[tab.id] ? (
-            <span className="tab-badge">{badges[tab.id]}</span>
-          ) : null}
-        </button>
-      ))}
+    <nav className="flex justify-around items-stretch bg-background border-t border-border shrink-0 pb-[var(--sab)] h-[calc(56px+var(--sab))]">
+      {TABS.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 bg-transparent border-none cursor-pointer relative transition-colors border-r border-border last:border-r-0 ${
+              isActive ? 'text-foreground bg-surface-hover' : 'text-muted/60 hover:text-foreground hover:bg-surface-hover'
+            }`}
+            onClick={() => onChange(tab.id)}
+          >
+            <div className="relative">
+              <Icon size={18} strokeWidth={isActive ? 2.5 : 1.5} />
+              {badges?.[tab.id] ? (
+                <span className="absolute -top-1.5 -right-2 bg-foreground text-background text-[9px] font-bold flex items-center justify-center px-1 h-3.5 min-w-[14px]">
+                  {badges[tab.id]}
+                </span>
+              ) : null}
+            </div>
+            <span className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+              {tab.label}
+            </span>
+            {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-foreground" />}
+          </button>
+        );
+      })}
     </nav>
   );
 }

@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+import sys, json, sqlite3, os
+
+try:
+    json.load(sys.stdin)
+except:
+    pass
+
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "todo.db")
+conn = sqlite3.connect(db_path)
+
+c = conn.cursor()
+c.execute("SELECT DISTINCT context FROM tasks WHERE context != '' ORDER BY context")
+contexts = [row[0] for row in c.fetchall()]
+conn.close()
+print(json.dumps(contexts, ensure_ascii=False))

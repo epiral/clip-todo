@@ -1,14 +1,15 @@
-import { useState, useMemo } from "react";
-import { useTasks } from "./hooks/useTasks";
-import { useProjects } from "./hooks/useProjects";
-import TabBar, { type TabId } from "./components/TabBar";
-import TaskCard from "./components/TaskCard";
-import TaskDetail from "./components/TaskDetail";
-import ProjectList from "./components/ProjectList";
-import type { Task } from "./hooks/useTasks";
-import type { KeyboardEvent } from "react";
+import { useState, useMemo, useCallback } from 'react';
+import { useTasks } from './hooks/useTasks';
+import { useProjects } from './hooks/useProjects';
+import { useContexts } from './hooks/useContexts';
+import TabBar, { type TabId } from './components/TabBar';
+import TaskCard from './components/TaskCard';
+import TaskDetail from './components/TaskDetail';
+import ProjectList from './components/ProjectList';
+import Logbook from './components/Logbook';
+import type { Task } from './types';
+import type { KeyboardEvent } from 'react';
 
-// 今日零点 + 明日零点 (seconds)
 function todayRange(): [number, number] {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -16,61 +17,78 @@ function todayRange(): [number, number] {
   return [start, start + 86400];
 }
 
-// context 分组顺序
-const CONTEXT_ORDER = ["@dev", "@mobile", "@pi", "@waiting", ""] as const;
 function contextLabel(ctx: string): string {
-  if (!ctx) return "Other";
-  return ctx;
+  return ctx || 'Other';
 }
 
 export default function App() {
   const { tasks, add, update, complete, uncomplete, remove } = useTasks();
   const { projects, add: addProject } = useProjects();
-  const [tab, setTab] = useState<TabId>("inbox");
+  const { contexts } = useContexts();
+  const [tab, setTab] = useState<TabId>('inbox');
   const [selected, setSelected] = useState<Task | null>(null);
-  const [inboxInput, setInboxInput] = useState("");
+  const [inboxInput, setInboxInput] = useState('');
 
-  // 过滤各视图任务
+  const sprintProjectIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const p of projects) {
+      if (p.area === 'sprint') ids.add(p.id);
+    }
+    return ids;
+  }, [projects]);
+
+  const isSprintTask = useCallback(
+    (t: Task) => t.project_id != null && sprintProjectIds.has(t.project_id),
+    [sprintProjectIds],
+  );
+
   const inboxTasks = useMemo(
-    () => tasks.filter((t) => t.status === "inbox"),
-    [tasks]
+    () => tasks.filter((t) => t.status === 'inbox'),
+    [tasks],
   );
 
   const todayTasks = useMemo(() => {
     const [start, end] = todayRange();
     return tasks
-      .filter(
-        (t) =>
-          t.status !== "done" &&
-          (t.priority === 0 ||
-            (t.due_date != null && t.due_date >= start && t.due_date < end))
+      .filter((t) =>
+        t.status !== 'done' &&
+        (t.priority === 0 || (t.due_date != null && t.due_date >= start && t.due_date < end))
       )
       .sort((a, b) => a.priority - b.priority);
   }, [tasks]);
 
+  const [todaySprintTasks, todayRoutineTasks] = useMemo(() => {
+    const sprint: Task[] = [];
+    const routine: Task[] = [];
+    for (const t of todayTasks) {
+      if (isSprintTask(t)) sprint.push(t);
+      else routine.push(t);
+    }
+    return [sprint, routine];
+  }, [todayTasks, isSprintTask]);
+
   const nextTasks = useMemo(
-    () => tasks.filter((t) => t.status === "next"),
-    [tasks]
+    () => tasks.filter((t) => t.status === 'next'),
+    [tasks],
   );
 
   const somedayTasks = useMemo(
-    () => tasks.filter((t) => t.status === "someday"),
-    [tasks]
+    () => tasks.filter((t) => t.status === 'someday'),
+    [tasks],
   );
 
-  // context 分组
   const nextByContext = useMemo(() => {
     const groups = new Map<string, Task[]>();
-    for (const ctx of CONTEXT_ORDER) {
-      groups.set(ctx, []);
-    }
+    // Pre-populate with known contexts from context-list
+    for (const ctx of contexts) groups.set(ctx, []);
+    groups.set('', []); // "Other" group for tasks without context
     for (const t of nextTasks) {
-      const ctx = t.context || "";
+      const ctx = t.context || '';
       if (!groups.has(ctx)) groups.set(ctx, []);
       groups.get(ctx)!.push(t);
     }
     return groups;
-  }, [nextTasks]);
+  }, [nextTasks, contexts]);
 
   const [collapsedCtx, setCollapsedCtx] = useState<Set<string>>(new Set());
   const toggleCtx = (ctx: string) => {
@@ -82,7 +100,6 @@ export default function App() {
     });
   };
 
-  // Tab badges
   const badges: Partial<Record<TabId, number>> = {
     inbox: inboxTasks.length || undefined,
     today: todayTasks.length || undefined,
@@ -91,116 +108,129 @@ export default function App() {
   const handleToggle = (id: number) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    if (task.status === "done") {
-      uncomplete(id);
-    } else {
-      complete(id);
-    }
+    if (task.status === 'done') uncomplete(id);
+    else complete(id);
   };
 
-  const handleSelect = (task: Task) => {
-    setSelected(task);
-  };
+  const handleSelect = (task: Task) => setSelected(task);
 
-  const handleUpdate = (id: number, fields: Partial<Omit<Task, "id" | "created_at">>) => {
+  const handleUpdate = (id: number, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => {
     update(id, fields);
-    // 同步 selected 任务的本地状态
     setSelected((prev) => (prev && prev.id === id ? { ...prev, ...fields } : prev));
   };
 
   const handleInboxKey = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && inboxInput.trim()) {
+    if (e.key === 'Enter' && inboxInput.trim()) {
       add(inboxInput);
-      setInboxInput("");
+      setInboxInput('');
     }
   };
 
   return (
-    <div className="app">
-      <div className="app-content">
-        {tab === "inbox" && (
-          <div className="view">
-            <h1 className="view-title">Inbox</h1>
-            <input
-              className="inbox-input"
-              placeholder="Capture anything..."
-              value={inboxInput}
-              onChange={(e) => setInboxInput(e.target.value)}
-              onKeyDown={handleInboxKey}
-              autoFocus
-            />
+    <div className="flex flex-col h-dvh max-w-[480px] mx-auto border-x border-border bg-background pt-[var(--sat)]">
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {tab === 'inbox' && (
+          <div className="pt-6">
+            <h1 className="text-4xl font-serif font-bold mb-6 tracking-tight">Inbox</h1>
+            <div className="flex gap-0 mb-6 border border-border">
+              <input
+                className="flex-1 px-3 py-2 text-sm bg-transparent text-foreground outline-none placeholder:text-muted/60"
+                placeholder="Capture anything..."
+                value={inboxInput}
+                onChange={(e) => setInboxInput(e.target.value)}
+                onKeyDown={handleInboxKey}
+                autoFocus
+              />
+              <button
+                className="px-4 py-2 bg-foreground text-background font-bold text-xs uppercase tracking-widest cursor-pointer hover:bg-foreground/90 transition-colors disabled:opacity-40"
+                disabled={!inboxInput.trim()}
+                onClick={() => { add(inboxInput); setInboxInput(''); }}
+              >
+                Add
+              </button>
+            </div>
             {inboxTasks.length === 0 ? (
-              <p className="empty-hint">Inbox Zero!</p>
+              <div className="border-t border-border pt-8 text-center">
+                <p className="text-muted/60 text-sm italic">Inbox Zero!</p>
+              </div>
             ) : (
-              <div className="task-list">
+              <div className="border-t border-border">
                 {inboxTasks.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onToggle={handleToggle}
-                    onSelect={handleSelect}
-                  />
+                  <TaskCard key={t.id} task={t} isSprint={isSprintTask(t)} onToggle={handleToggle} onSelect={handleSelect} />
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {tab === "today" && (
-          <div className="view">
-            <h1 className="view-title">Today</h1>
+        {tab === 'today' && (
+          <div className="pt-6">
+            <h1 className="text-4xl font-serif font-bold mb-6 tracking-tight">Today</h1>
             {todayTasks.length === 0 ? (
-              <p className="empty-hint">Nothing urgent today</p>
+              <div className="border-t border-border pt-8 text-center">
+                <p className="text-muted/60 text-sm italic">Nothing urgent today</p>
+              </div>
             ) : (
-              <div className="task-list">
-                {todayTasks.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onToggle={handleToggle}
-                    onSelect={handleSelect}
-                  />
-                ))}
+              <div>
+                {todaySprintTasks.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 py-1.5 border-b border-sprint/30">
+                      <span className="text-xs text-sprint-header tracking-wide">⚡ 冲刺</span>
+                    </div>
+                    <div>
+                      {todaySprintTasks.map((t) => (
+                        <TaskCard key={t.id} task={t} isSprint onToggle={handleToggle} onSelect={handleSelect} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {todayRoutineTasks.length > 0 && (
+                  <div style={{ opacity: 0.85 }}>
+                    <div className="flex items-center gap-2 py-1.5 border-b border-border">
+                      <span className="text-xs text-muted tracking-wide">💧 维护</span>
+                    </div>
+                    <div>
+                      {todayRoutineTasks.map((t) => (
+                        <TaskCard key={t.id} task={t} onToggle={handleToggle} onSelect={handleSelect} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {tab === "next" && (
-          <div className="view">
-            <h1 className="view-title">Next Actions</h1>
+        {tab === 'next' && (
+          <div className="pt-6">
+            <h1 className="text-4xl font-serif font-bold mb-6 tracking-tight">Next</h1>
             {nextTasks.length === 0 ? (
-              <p className="empty-hint">No next actions</p>
+              <div className="border-t border-border pt-8 text-center">
+                <p className="text-muted/60 text-sm italic">No next actions</p>
+              </div>
             ) : (
-              <div className="context-groups">
+              <div className="flex flex-col gap-6">
                 {Array.from(nextByContext.entries()).map(([ctx, ctxTasks]) => {
                   if (ctxTasks.length === 0) return null;
                   const collapsed = collapsedCtx.has(ctx);
                   return (
-                    <div key={ctx} className="context-group">
+                    <div key={ctx} className="group">
                       <button
-                        className="context-group-header"
+                        className="flex items-center justify-between w-full bg-transparent border-none text-foreground cursor-pointer p-0 mb-2 group-hover:text-accent transition-colors"
                         onClick={() => toggleCtx(ctx)}
                       >
-                        <span className={`arrow ${collapsed ? "" : "open"}`}>
-                          &rsaquo;
-                        </span>
-                        <span className="context-group-label">
-                          {contextLabel(ctx)}
-                        </span>
-                        <span className="context-group-count">
-                          {ctxTasks.length}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] transition-transform ${collapsed ? '-rotate-90' : ''}`}>
+                            ▼
+                          </span>
+                          <span className="text-xs font-bold uppercase tracking-[0.2em]">{contextLabel(ctx)}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-muted/60">{ctxTasks.length} ITEMS</span>
                       </button>
                       {!collapsed && (
-                        <div className="task-list">
+                        <div className="border-t border-border">
                           {ctxTasks.map((t) => (
-                            <TaskCard
-                              key={t.id}
-                              task={t}
-                              onToggle={handleToggle}
-                              onSelect={handleSelect}
-                            />
+                            <TaskCard key={t.id} task={t} isSprint={isSprintTask(t)} onToggle={handleToggle} onSelect={handleSelect} />
                           ))}
                         </div>
                       )}
@@ -212,12 +242,13 @@ export default function App() {
           </div>
         )}
 
-        {tab === "projects" && (
-          <div className="view">
-            <h1 className="view-title">Projects</h1>
+        {tab === 'projects' && (
+          <div className="pt-6">
+            <h1 className="text-4xl font-serif font-bold mb-6 tracking-tight">Projects</h1>
             <ProjectList
               projects={projects}
               tasks={tasks}
+              somedayTasks={somedayTasks}
               onAddProject={addProject}
               onToggleTask={handleToggle}
               onSelectTask={handleSelect}
@@ -225,24 +256,8 @@ export default function App() {
           </div>
         )}
 
-        {tab === "someday" && (
-          <div className="view">
-            <h1 className="view-title">Someday / Maybe</h1>
-            {somedayTasks.length === 0 ? (
-              <p className="empty-hint">No someday items</p>
-            ) : (
-              <div className="task-list">
-                {somedayTasks.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onToggle={handleToggle}
-                    onSelect={handleSelect}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+        {tab === 'logbook' && (
+          <Logbook onSelectTab={setTab} />
         )}
       </div>
 
@@ -252,6 +267,7 @@ export default function App() {
         <TaskDetail
           task={selected}
           projects={projects}
+          contexts={contexts}
           onUpdate={handleUpdate}
           onRemove={remove}
           onClose={() => setSelected(null)}

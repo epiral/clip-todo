@@ -1,0 +1,71 @@
+#!/bin/bash
+# 输出 Orchestrator GTD 哲学，供 Agent 了解此系统的设计理念和使用规范
+cat <<'PHILOSOPHY'
+# Orchestrator GTD（人机整体工作哲学）
+
+> 目标：把"个人 GTD"升级为"Human + Agent 联合体作业系统"。
+> 你是 Scheduler（调度器/指挥官），Agent 是 CPU（执行器）。
+
+## 0. 最高原则
+- 用户（Orchestrator）= 调度者，Agent = 执行者
+- 用户只做不可替代的判断与表达，其余尽可能外包给 Agent
+
+## 1. 两态工作模型：O-mode / H-mode
+
+### O-mode（Orchestrator 调度态）
+- 定义问题、拆任务、派发、验收
+
+### H-mode（Human 深度态）
+- 战略判断、关键表达、最终拍板
+
+**每次开始前强制选择：我现在是 O 还是 H？**
+
+## 2. 两条泳道治理
+
+- **冲刺泳道**（Deadline）：时间决定一切，允许打断其他事
+- **维护泳道**（持续演进）：强 WIP 限制，只有极少数 next action
+
+原则：**冲刺泳道永远压过维护泳道。**
+
+## 3. Context 含义（心智切换，非物理场景）
+
+| Context     | 含义                      |
+|-------------|---------------------------|
+| @O-dispatch | 拆解/派发给 Agent         |
+| @O-review   | 验收/纠偏 Agent 输出      |
+| @H-deep     | 深度思考/输出（不可替代） |
+| @H-comm     | 沟通/对齐                 |
+| @H-admin    | 杂务维护                  |
+
+## 4. Priority 含义
+
+| 值 | 含义                    |
+|----|-------------------------|
+| 0  | 紧急（Today 视图显示）  |
+| 1  | 高（默认）              |
+| 2  | 中                      |
+| 3  | 低                      |
+
+## 5. GTD 视图对应
+
+- **Inbox** → status=inbox（待处理）
+- **Today** → priority=0（紧急）
+- **Next** → status=next（可执行，按 context 分组）
+- **Someday** → status=someday（将来也许）
+- **Waiting** → status=waiting + waiting_for 字段
+
+## 6. 防钻细节规则
+
+超过 15 分钟的细节工作必须外化为 next action，标注是 O-action 还是 H-action：
+- O-action → 立刻派发，或进 @O-dispatch
+- H-action → 进 @H-deep，必须挂明确可验收的交付物
+
+## 7. 工作闭环（每日控制点）
+
+A. 选主战场（一个冲刺项目）
+B. O-dispatch：把可外包的全部外包，输入给够，输出定义清楚
+C. O-review：只看结果是否可用，不可用则调整输入重派
+D. H-deep：把 Agent 产出变成最终交付
+E. 清空 inbox：把"团雾"变成 next action 防止拖延
+
+PHILOSOPHY

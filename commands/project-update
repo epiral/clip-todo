@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+import sys, json, sqlite3, os
+
+raw = sys.stdin.read(); data = json.loads(raw) if raw.strip() else {}
+
+if "id" not in data:
+    print(json.dumps({"error": "id is required"}, ensure_ascii=False))
+    sys.exit(1)
+
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "todo.db")
+conn = sqlite3.connect(db_path)
+conn.row_factory = sqlite3.Row
+
+pid = data["id"]
+allowed = ["name", "color", "area"]
+sets = []
+params = []
+
+for field in allowed:
+    if field in data:
+        sets.append(f"{field} = ?")
+        params.append(data[field])
+
+if not sets:
+    print(json.dumps({"error": "no fields to update"}, ensure_ascii=False))
+    sys.exit(1)
+
+params.append(pid)
+sql = f"UPDATE projects SET {', '.join(sets)} WHERE id = ?"
+c = conn.cursor()
+c.execute(sql, params)
+conn.commit()
+
+c.execute("SELECT * FROM projects WHERE id = ?", [pid])
+row = c.fetchone()
+if row is None:
+    print(json.dumps({"error": "project not found"}, ensure_ascii=False))
+    sys.exit(1)
+conn.close()
+print(json.dumps(dict(row), ensure_ascii=False))

@@ -1,4 +1,0 @@
-#!/bin/bash
-DB="$(dirname "$0")/../data/todo.db"
-RESULT=$(sqlite3 -json "$DB" "SELECT * FROM tasks ORDER BY created_at DESC")
-echo "${RESULT:-[]}"

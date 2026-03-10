@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+import sys, json, sqlite3, os, time
+from datetime import datetime, timedelta, timezone
+
+try:
+    raw = sys.stdin.read(); data = json.loads(raw) if raw.strip() else {}
+except:
+    data = {}
+
+days = data.get("days", 30)
+limit = data.get("limit", 200)
+
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "todo.db")
+conn = sqlite3.connect(db_path)
+conn.row_factory = sqlite3.Row
+
+utc8 = timezone(timedelta(hours=8))
+now = datetime.now(utc8)
+cutoff = int((now - timedelta(days=days)).timestamp())
+
+sql = """
+SELECT t.id, t.title, t.context, t.completed_at, t.project_id,
+       p.name AS project_name
+FROM tasks t
+LEFT JOIN projects p ON t.project_id = p.id
+WHERE t.status = 'done' AND t.completed_at IS NOT NULL AND t.completed_at >= ?
+ORDER BY t.completed_at DESC
+LIMIT ?
+"""
+
+c = conn.cursor()
+c.execute(sql, [cutoff, limit])
+rows = [dict(row) for row in c.fetchall()]
+conn.close()
+
+# Group by date with labels
+today_str = now.strftime("%Y-%m-%d")
+yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+
+groups = {}
+for row in rows:
+    ts = row["completed_at"]
+    dt = datetime.fromtimestamp(ts, tz=utc8)
+    date_key = dt.strftime("%Y-%m-%d")
+    if date_key not in groups:
+        if date_key == today_str:
+            label = "今天"
+        elif date_key == yesterday_str:
+            label = "昨天"
+        else:
+            label = f"{dt.month}月{dt.day}日"
+        groups[date_key] = {"date": date_key, "label": label, "tasks": []}
+    groups[date_key]["tasks"].append(row)
+
+result = sorted(groups.values(), key=lambda g: g["date"], reverse=True)
+print(json.dumps(result, ensure_ascii=False))
