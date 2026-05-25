@@ -8,7 +8,7 @@ interface Props {
   tasks: Task[];
   somedayTasks?: Task[];
   onAddProject: (name: string) => void;
-  onToggleTask: (id: number) => void;
+  onToggleTask: (id: string) => void;
   onSelectTask: (task: Task) => void;
 }
 
@@ -17,21 +17,20 @@ export default function ProjectList({
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
-  const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
 
-  const taskCountMap = new Map<number, number>();
+  const taskCountMap = new Map<string, number>();
   for (const t of tasks) {
-    if (t.project_id != null && t.status !== 'done') {
-      taskCountMap.set(t.project_id, (taskCountMap.get(t.project_id) || 0) + 1);
+    if (t.project && t.status !== 'done') {
+      taskCountMap.set(t.project, (taskCountMap.get(t.project) || 0) + 1);
     }
   }
 
   if (selectedProject != null) {
     const project = projects.find((p) => p.id === selectedProject);
     const projectTasks = tasks.filter(
-      (t) => t.project_id === selectedProject && t.status !== 'done'
+      (t) => t.project === project?.name && t.status !== 'done'
     );
-    const isSprint = project?.area === 'sprint';
     return (
       <div>
         <button
@@ -42,10 +41,9 @@ export default function ProjectList({
           Back to Index
         </button>
         <h2 className="text-3xl font-serif font-bold flex items-center gap-3 mb-6 tracking-tight">
-          {isSprint && <span className="text-sm">⚡</span>}
           <span
             className="w-1 h-8 shrink-0"
-            style={{ background: isSprint ? 'var(--color-sprint)' : (project?.color || 'var(--color-foreground)') }}
+            style={{ background: project?.color || 'var(--color-foreground)' }}
           />
           {project?.name || 'Project'}
         </h2>
@@ -56,7 +54,7 @@ export default function ProjectList({
         ) : (
           <div className="border-t border-border">
             {projectTasks.map((t) => (
-              <TaskCard key={t.id} task={t} isSprint={isSprint} onToggle={onToggleTask} onSelect={onSelectTask} />
+              <TaskCard key={t.id} task={t} onToggle={onToggleTask} onSelect={onSelectTask} />
             ))}
           </div>
         )}
@@ -72,33 +70,27 @@ export default function ProjectList({
         </div>
       ) : (
         <div className="border-t border-border">
-          {projects.map((p) => {
-            const isSprint = p.area === 'sprint';
-            return (
-              <button
-                key={p.id}
-                className={`flex items-center gap-3 w-full px-3 py-3.5 bg-transparent border-b border-border last:border-b-0 cursor-pointer text-left text-foreground hover:bg-surface-hover transition-colors ${
-                  isSprint ? 'border-l-[2px] border-l-sprint' : ''
-                }`}
-                onClick={() => setSelectedProject(p.id)}
-              >
-                {isSprint && <span className="text-[10px] leading-none shrink-0">⚡</span>}
-                <span
-                  className="w-1 h-4 shrink-0"
-                  style={{ background: isSprint ? 'var(--color-sprint)' : p.color }}
-                />
-                <span className="flex-1 font-bold text-sm uppercase tracking-wide">{p.name}</span>
-                <span className="text-muted font-mono text-[10px]">{taskCountMap.get(p.id) || 0}</span>
-              </button>
-            );
-          })}
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              className="flex items-center gap-3 w-full px-3 py-3.5 bg-transparent border-b border-border last:border-b-0 cursor-pointer text-left text-foreground hover:bg-surface-hover transition-colors"
+              onClick={() => setSelectedProject(p.id)}
+            >
+              <span
+                className="w-1 h-4 shrink-0"
+                style={{ background: p.color }}
+              />
+              <span className="flex-1 font-bold text-sm uppercase tracking-wide">{p.name}</span>
+              <span className="text-muted font-mono text-[10px]">{taskCountMap.get(p.name) || 0}</span>
+            </button>
+          ))}
         </div>
       )}
 
       {somedayTasks.length > 0 && (
         <div className="mt-8">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted/60">将来也许</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted/60">Someday / Maybe</h3>
             <div className="h-[1px] flex-1 bg-border" />
           </div>
           <div className="opacity-70">
@@ -136,7 +128,7 @@ export default function ProjectList({
           onClick={() => setAdding(true)}
         >
           <Plus size={12} />
-          Initialize Project
+          New Project
         </button>
       )}
     </div>

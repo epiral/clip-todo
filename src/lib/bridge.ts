@@ -1,29 +1,47 @@
-// Bridge 适配层
-// window.Bridge 存在时用真实 Bridge.invoke，否则用 localStorage fallback
-// 跨端兼容：iOS (WKWebView) 与 Desktop (Electron) 调用签名不同
+/**
+ * Clip Web bridge — wraps @pinixai/core/web invoke for typed command calls.
+ *
+ * In Hub/standalone mode, calls go through the SDK's auto-detected transport.
+ * In development (no backend), falls back to localStorage.
+ */
+import { invoke as sdkInvoke } from "@pinixai/core/web";
 
-const isBridge = () => typeof window !== 'undefined' && !!window.Bridge;
-const isIOS = () => typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).webkit;
+let _useLocalStorage = false;
 
-/** 跨端 Pinix RPC 调用 — 统一 iOS / Desktop 差异 */
-async function pinixInvoke(command: string, stdin = '{}', args: string[] = []) {
-  if (isIOS()) {
-    return window.Bridge!.invoke('invoke', { name: command, args, stdin });
-  } else {
-    return window.Bridge!.invoke(command, { args, stdin });
+/**
+ * Detect whether the SDK transport is available.
+ * In standalone dev (vite dev server), there's no clip backend,
+ * so we fall back to localStorage.
+ */
+function detectMode(): boolean {
+  // If running on the Vite dev server port, use localStorage
+  if (typeof window !== "undefined") {
+    const port = window.location.port;
+    if (port === "5173" || port === "5174") return true;
   }
+  return false;
 }
 
-/** 调用高级命令（task-list, project-create 等），自动 JSON stringify/parse + 错误处理 */
-export async function invoke<T = unknown>(command: string, input: Record<string, unknown> = {}): Promise<T> {
-  if (!isBridge()) {
-    throw new Error('Bridge not available');
+/**
+ * Invoke a clip command. Sends the input object as the JSON body.
+ * The @pinixai/core HTTP server validates it against the command's Zod schema.
+ */
+export async function invoke<T = unknown>(
+  command: string,
+  input: Record<string, unknown> = {},
+): Promise<T> {
+  if (_useLocalStorage) {
+    throw new Error("localStorage mode — no backend");
   }
-  const result = await pinixInvoke(command, JSON.stringify(input));
-  if (result.exitCode !== 0) {
-    throw new Error(`${command} failed: ${result.stderr}`);
-  }
-  return JSON.parse(result.stdout) as T;
+  // Pass input directly as the opts body. Zod strips unknown fields (args, stdin).
+  return sdkInvoke<T>(command, input as Parameters<typeof sdkInvoke>[1]);
 }
 
-export { isBridge };
+export function isLocalStorageMode(): boolean {
+  return _useLocalStorage;
+}
+
+// Auto-detect on load
+if (typeof window !== "undefined") {
+  _useLocalStorage = detectMode();
+}

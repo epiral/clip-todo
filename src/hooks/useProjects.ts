@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { invoke, isBridge } from '../lib/bridge';
-import type { Project, RawProject } from '../types';
+import { invoke, isLocalStorageMode } from '../lib/bridge';
+import type { Project } from '../types';
 
-const LS_KEY = 'gtd-projects';
+const LS_KEY = 'todo-projects';
 
 function lsRead(): Project[] {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
@@ -15,33 +15,42 @@ function lsWrite(projects: Project[]) {
 
 let nextId = Date.now();
 
+function genId(): string {
+  return (nextId++).toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const useBridgeRef = useRef(false);
+  const useLS = useRef(false);
 
   const load = useCallback(async () => {
-    if (useBridgeRef.current) {
-      const rows = await invoke<RawProject[]>('project-list', {});
-      setProjects(rows.map((r) => ({ ...r, archived: !!r.archived })));
+    if (!useLS.current) {
+      try {
+        const rows = await invoke<Project[]>('project/list', {});
+        setProjects(rows);
+      } catch {
+        useLS.current = true;
+        setProjects(lsRead().filter((p) => !p.archived));
+      }
     } else {
       setProjects(lsRead().filter((p) => !p.archived));
     }
   }, []);
 
   useEffect(() => {
-    if (isBridge()) useBridgeRef.current = true;
+    if (isLocalStorageMode()) useLS.current = true;
     load();
   }, [load]);
 
-  const add = useCallback(async (name: string, color = 'oklch(0.6 0.1 265)', area = 'work') => {
+  const add = useCallback(async (name: string, color = '#6366f1') => {
     const n = name.trim();
     if (!n) return;
-    if (useBridgeRef.current) {
-      await invoke('project-create', { name: n, color, area });
+    if (!useLS.current) {
+      await invoke('project/create', { name: n, color });
     } else {
       const list = lsRead();
       list.unshift({
-        id: nextId++, name: n, color, area, archived: false,
+        id: genId(), name: n, color, archived: false,
         created_at: Math.floor(Date.now() / 1000),
       });
       lsWrite(list);
@@ -49,23 +58,9 @@ export function useProjects() {
     await load();
   }, [load]);
 
-  const update = useCallback(async (id: number, fields: Partial<Pick<Project, 'name' | 'color' | 'area'>>) => {
-    if (useBridgeRef.current) {
-      const payload: Record<string, unknown> = { id };
-      if (fields.name !== undefined) payload.name = fields.name;
-      if (fields.color !== undefined) payload.color = fields.color;
-      if (fields.area !== undefined) payload.area = fields.area;
-      await invoke('project-update', payload);
-    } else {
-      const list = lsRead().map((p) => p.id === id ? { ...p, ...fields } : p);
-      lsWrite(list);
-    }
-    await load();
-  }, [load]);
-
-  const archive = useCallback(async (id: number) => {
-    if (useBridgeRef.current) {
-      await invoke('project-archive', { id });
+  const archive = useCallback(async (id: string) => {
+    if (!useLS.current) {
+      await invoke('project/archive', { id });
     } else {
       const list = lsRead().map((p) => p.id === id ? { ...p, archived: true } : p);
       lsWrite(list);
@@ -73,5 +68,5 @@ export function useProjects() {
     await load();
   }, [load]);
 
-  return { projects, add, update, archive, reload: load };
+  return { projects, add, archive, reload: load };
 }

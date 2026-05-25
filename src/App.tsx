@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useTasks } from './hooks/useTasks';
 import { useProjects } from './hooks/useProjects';
 import { useContexts } from './hooks/useContexts';
@@ -9,13 +9,6 @@ import ProjectList from './components/ProjectList';
 import Logbook from './components/Logbook';
 import type { Task } from './types';
 import type { KeyboardEvent } from 'react';
-
-function todayRange(): [number, number] {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const start = Math.floor(d.getTime() / 1000);
-  return [start, start + 86400];
-}
 
 function contextLabel(ctx: string): string {
   return ctx || 'Other';
@@ -29,43 +22,20 @@ export default function App() {
   const [selected, setSelected] = useState<Task | null>(null);
   const [inboxInput, setInboxInput] = useState('');
 
-  const sprintProjectIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const p of projects) {
-      if (p.area === 'sprint') ids.add(p.id);
-    }
-    return ids;
-  }, [projects]);
-
-  const isSprintTask = useCallback(
-    (t: Task) => t.project_id != null && sprintProjectIds.has(t.project_id),
-    [sprintProjectIds],
-  );
-
   const inboxTasks = useMemo(
     () => tasks.filter((t) => t.status === 'inbox'),
     [tasks],
   );
 
   const todayTasks = useMemo(() => {
-    const [start, end] = todayRange();
+    const todayStr = new Date().toISOString().slice(0, 10);
     return tasks
       .filter((t) =>
         t.status !== 'done' &&
-        (t.priority === 0 || (t.due_date != null && t.due_date >= start && t.due_date < end))
+        (t.priority === 0 || t.due_date === todayStr)
       )
       .sort((a, b) => a.priority - b.priority);
   }, [tasks]);
-
-  const [todaySprintTasks, todayRoutineTasks] = useMemo(() => {
-    const sprint: Task[] = [];
-    const routine: Task[] = [];
-    for (const t of todayTasks) {
-      if (isSprintTask(t)) sprint.push(t);
-      else routine.push(t);
-    }
-    return [sprint, routine];
-  }, [todayTasks, isSprintTask]);
 
   const nextTasks = useMemo(
     () => tasks.filter((t) => t.status === 'next'),
@@ -79,9 +49,8 @@ export default function App() {
 
   const nextByContext = useMemo(() => {
     const groups = new Map<string, Task[]>();
-    // Pre-populate with known contexts from context-list
     for (const ctx of contexts) groups.set(ctx, []);
-    groups.set('', []); // "Other" group for tasks without context
+    groups.set('', []);
     for (const t of nextTasks) {
       const ctx = t.context || '';
       if (!groups.has(ctx)) groups.set(ctx, []);
@@ -105,7 +74,7 @@ export default function App() {
     today: todayTasks.length || undefined,
   };
 
-  const handleToggle = (id: number) => {
+  const handleToggle = (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     if (task.status === 'done') uncomplete(id);
@@ -114,7 +83,7 @@ export default function App() {
 
   const handleSelect = (task: Task) => setSelected(task);
 
-  const handleUpdate = (id: number, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => {
+  const handleUpdate = (id: string, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => {
     update(id, fields);
     setSelected((prev) => (prev && prev.id === id ? { ...prev, ...fields } : prev));
   };
@@ -156,7 +125,7 @@ export default function App() {
             ) : (
               <div className="border-t border-border">
                 {inboxTasks.map((t) => (
-                  <TaskCard key={t.id} task={t} isSprint={isSprintTask(t)} onToggle={handleToggle} onSelect={handleSelect} />
+                  <TaskCard key={t.id} task={t} onToggle={handleToggle} onSelect={handleSelect} />
                 ))}
               </div>
             )}
@@ -171,31 +140,10 @@ export default function App() {
                 <p className="text-muted/60 text-sm italic">Nothing urgent today</p>
               </div>
             ) : (
-              <div>
-                {todaySprintTasks.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 py-1.5 border-b border-sprint/30">
-                      <span className="text-xs text-sprint-header tracking-wide">⚡ 冲刺</span>
-                    </div>
-                    <div>
-                      {todaySprintTasks.map((t) => (
-                        <TaskCard key={t.id} task={t} isSprint onToggle={handleToggle} onSelect={handleSelect} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {todayRoutineTasks.length > 0 && (
-                  <div style={{ opacity: 0.85 }}>
-                    <div className="flex items-center gap-2 py-1.5 border-b border-border">
-                      <span className="text-xs text-muted tracking-wide">💧 维护</span>
-                    </div>
-                    <div>
-                      {todayRoutineTasks.map((t) => (
-                        <TaskCard key={t.id} task={t} onToggle={handleToggle} onSelect={handleSelect} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="border-t border-border">
+                {todayTasks.map((t) => (
+                  <TaskCard key={t.id} task={t} onToggle={handleToggle} onSelect={handleSelect} />
+                ))}
               </div>
             )}
           </div>
@@ -230,7 +178,7 @@ export default function App() {
                       {!collapsed && (
                         <div className="border-t border-border">
                           {ctxTasks.map((t) => (
-                            <TaskCard key={t.id} task={t} isSprint={isSprintTask(t)} onToggle={handleToggle} onSelect={handleSelect} />
+                            <TaskCard key={t.id} task={t} onToggle={handleToggle} onSelect={handleSelect} />
                           ))}
                         </div>
                       )}

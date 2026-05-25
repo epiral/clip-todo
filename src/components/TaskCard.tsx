@@ -3,15 +3,8 @@ import type { Task } from '../types';
 
 interface Props {
   task: Task;
-  isSprint?: boolean;
-  onToggle: (id: number) => void;
+  onToggle: (id: string) => void;
   onSelect: (task: Task) => void;
-}
-
-function todayStart(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return Math.floor(d.getTime() / 1000);
 }
 
 const PRIORITY_COLORS: Record<number, string> = {
@@ -21,35 +14,21 @@ const PRIORITY_COLORS: Record<number, string> = {
   3: 'bg-p3',
 };
 
-/** Dynamic context styling based on GTD mental-mode prefix */
-function contextStyle(ctx: string): string {
-  if (ctx.startsWith('@O-')) return 'bg-ctx-orchestrator-bg text-ctx-orchestrator-fg border-transparent';
-  if (ctx.startsWith('@H-')) return 'bg-ctx-human-bg text-ctx-human-fg border-transparent';
-  return 'bg-muted/10 text-muted border-muted/20';
-}
-
-export default function TaskCard({ task, isSprint, onToggle, onSelect }: Props) {
+export default function TaskCard({ task, onToggle, onSelect }: Props) {
   const isDone = task.status === 'done';
-  const isOverdue = task.due_date != null && task.due_date < todayStart() && !isDone;
-
-  const formatDate = (ts: number) => {
-    const d = new Date(ts * 1000);
-    return `${d.getMonth() + 1}/${d.getDate()}`;
-  };
+  const isOverdue = task.due_date != null && task.due_date < new Date().toISOString().slice(0, 10) && !isDone;
 
   return (
     <div
       className="flex items-stretch border-b border-border last:border-b-0 cursor-pointer hover:bg-surface-hover active:bg-surface-hover transition-colors"
       onClick={() => onSelect(task)}
     >
-      {/* Left swimlane bar */}
-      {isSprint ? (
-        <div className="w-1 bg-sprint shrink-0" />
-      ) : task.priority <= 2 ? (
+      {/* Priority bar */}
+      {task.priority <= 2 && (
         <div className="shrink-0 flex items-center">
           <div className={`w-[3px] h-[60%] ${PRIORITY_COLORS[task.priority]}`} />
         </div>
-      ) : null}
+      )}
 
       <div className="flex items-start gap-3 px-3 py-2.5 flex-1 min-w-0">
         <button
@@ -68,17 +47,17 @@ export default function TaskCard({ task, isSprint, onToggle, onSelect }: Props) 
         </button>
 
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span className={`text-sm leading-tight break-words ${isDone ? 'line-through text-muted font-normal' : isSprint ? 'text-foreground font-medium' : 'text-foreground font-normal'}`}>
+          <span className={`text-sm leading-tight break-words ${isDone ? 'line-through text-muted font-normal' : 'text-foreground font-normal'}`}>
             {task.title}
           </span>
           <div className="flex items-center gap-2 flex-wrap min-h-[16px]">
             {task.due_date != null && (
               <span className={`text-[11px] font-mono ${isOverdue ? 'text-p0 font-bold' : 'text-muted'}`}>
-                {formatDate(task.due_date)}
+                {task.due_date}
               </span>
             )}
             {task.context && (
-              <span className={`text-[10px] font-semibold px-1 py-0 border ${contextStyle(task.context)}`}>
+              <span className="text-[10px] font-semibold px-1 py-0 border bg-ctx-bg text-ctx-fg border-transparent">
                 {task.context}
               </span>
             )}

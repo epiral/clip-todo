@@ -1,124 +1,120 @@
-# Todo Clip — Agent Interface
+# @pinix/todo — Agent Interface
 
-> **首次使用前必读**：先执行 `get-philosophy` 获取完整的 Orchestrator GTD 工作哲学。
-> 不理解哲学直接操作 = 录入垃圾数据。
-
-你正在操作一个基于 **Orchestrator GTD** 哲学设计的待办系统。
-用户（Orchestrator）是调度者，你（Agent）是执行者。
-
----
-
-## 业务模型
-
-### 任务状态 (status)
-- `inbox` — 收集箱，待处理
-- `next` — 下一步行动，可执行
-- `someday` — 将来也许
-- `waiting` — 等待中（配合 waiting_for 字段说明等待对象）
-- `done` — 已完成
-
-### 优先级 (priority)
-- `0` — 紧急（出现在 Today 视图）
-- `1` — 高（默认）
-- `2` — 中
-- `3` — 低
-
-### Context（心智切换标签，非物理场景）
-- `@O-dispatch` — 拆解/派发给 Agent
-- `@O-review` — 验收/纠偏 Agent 输出
-- `@H-deep` — 深度思考/输出（不可替代）
-- `@H-comm` — 沟通/对齐
-- `@H-admin` — 杂务维护
-
-**先用 `context-list` 发现已有 context，再使用。**
-
-### GTD 视图对应关系
-- **Inbox** → `task-list {"status": "inbox"}`
-- **Today** → `task-list {"today": true}`
-- **Next** → `task-list {"status": "next"}`（前端按 context 分组）
-- **Someday** → `task-list {"status": "someday"}`
-- **Waiting** → `task-list {"status": "waiting"}`
-
----
+A GTD-based task manager that works for both humans and AI agents.
+Any agent can create, track, and complete tasks through CLI, MCP, or Web UI.
 
 ## Commands
 
-### get-philosophy
-stdin: `{}`
-stdout: Orchestrator GTD 完整哲学文档（Markdown 格式）
+### add
+Create a new task. Defaults to inbox status, priority 1.
+```json
+{"title": "Task title", "status?": "inbox", "priority?": 1, "context?": "", "project?": "", "notes?": "", "due_date?": "2025-03-15", "waiting_for?": "", "source?": "agent-name"}
+```
+Returns: Task object
 
-### task-list
-stdin: `{"status?": "inbox|next|someday|waiting|done", "project_id?": 1, "context?": "@dev", "today?": true, "include_done?": false}`
-stdout: `[{id, title, status, priority, context, project_id, due_date, notes, waiting_for, completed_at, created_at}, ...]`
+### list
+List tasks with optional filters.
+```json
+{"status?": "inbox|next|someday|waiting|done", "project?": "project-name", "context?": "@dev", "include_done?": false, "today?": false}
+```
+Returns: Task[] (sorted by priority ASC, created_at DESC)
 
-### task-create
-stdin: `{"title": "任务标题", "project_id?": 1, "context?": "@H-deep", "priority?": 1, "due_date?": "2025-03-15", "status?": "inbox", "notes?": "", "waiting_for?": ""}`
-stdout: `{task对象}`
+### get
+Get a single task by ID.
+```json
+{"id": "abc123"}
+```
+Returns: Task object
 
-### task-update
-stdin: `{"id": 1, "title?": "新标题", "status?": "next", "priority?": 0, "context?": "@O-dispatch", "project_id?": 2, "due_date?": "2025-03-15", "notes?": "...", "waiting_for?": "..."}`
-stdout: `{task对象}`
+### done
+Mark a task as completed. Sets completed_at automatically.
+```json
+{"id": "abc123"}
+```
+Returns: Task object (status="done", completed_at set)
 
-### task-done
-stdin: `{"id": 1}`
-stdout: `{task对象}`（status="done", completed_at 已设置）
+### update
+Update task fields. Only provided fields are changed.
+```json
+{"id": "abc123", "title?": "New title", "status?": "next", "priority?": 0, "context?": "@dev", "project?": "my-project", "notes?": "...", "due_date?": "2025-03-15", "waiting_for?": "..."}
+```
+Returns: Task object
 
-### task-undone
-stdin: `{"id": 1}`
-stdout: `{task对象}`（status="inbox", completed_at=null）
+### remove
+Permanently delete a task.
+```json
+{"id": "abc123"}
+```
+Returns: `{"deleted": true, "id": "abc123"}`
 
-### task-delete
-stdin: `{"id": 1}`
-stdout: `{"deleted": true, "id": 1}`
+### stats
+Get task statistics.
+```json
+{}
+```
+Returns: `{"total": N, "inbox": N, "active": N, "done": N, "by_project": [...], "by_context": [...]}`
 
-### task-history
-stdin: `{"limit?": 30}`
-stdout: 按日期分组的已完成任务列表
+### history
+Get completed task history grouped by date.
+```json
+{"days?": 30}
+```
+Returns: Array of date groups with completed tasks
 
-### project-list
-stdin: `{"include_archived?": false, "area?": "work"}`
-stdout: `[{id, name, color, area, archived, created_at, task_count}, ...]`
+### contexts
+List all context tags in use.
+```json
+{}
+```
+Returns: `["@dev", "@review", ...]`
 
-### project-create
-stdin: `{"name": "项目名", "color?": "#8b6f47", "area?": "work|sprint|personal"}`
-stdout: `{project对象}`
+### project list
+List projects with active task counts.
+```json
+{"include_archived?": false}
+```
 
-### project-update
-stdin: `{"id": 1, "name?": "新名称", "color?": "#ff0000", "area?": "personal"}`
-stdout: `{project对象}`
+### project create
+Create a new project.
+```json
+{"name": "Project name", "color?": "#6366f1"}
+```
 
-### project-archive
-stdin: `{"id": 1}`
-stdout: `{project对象}`（archived=true）
+### project archive
+Archive a project.
+```json
+{"id": "abc123"}
+```
 
-### context-list
-stdin: `{}`
-stdout: `["@O-dispatch", "@H-deep", ...]`
+## Data Model
 
-### context-rename
-stdin: `{"from": "@dev", "to": "@O-dispatch"}`
-stdout: `{"updated": 5}`
+### Task
+| Field | Type | Description |
+|---|---|---|
+| id | string | Unique ID |
+| title | string | Task title |
+| status | enum | inbox, next, someday, waiting, done |
+| priority | 0-3 | 0=urgent (shows in Today), 1=high, 2=medium, 3=low |
+| context | string | Grouping tag (e.g. @dev, @review) |
+| project | string | Project name |
+| notes | string | Additional notes |
+| waiting_for | string | What this task is waiting for |
+| due_date | string? | ISO date YYYY-MM-DD |
+| source | string | Creator identity (agent name, user, etc) |
+| created_at | number | Unix timestamp |
+| completed_at | number? | Unix timestamp |
 
-### context-delete
-stdin: `{"context": "@dev"}`
-stdout: `{"updated": 5}`
+### GTD Views
+- **Inbox** — `list {"status": "inbox"}`
+- **Today** — `list {"today": true}` (priority 0 + due today)
+- **Next** — `list {"status": "next"}` (grouped by context in Web UI)
+- **Someday** — `list {"status": "someday"}`
+- **Waiting** — `list {"status": "waiting"}`
 
-### db-query
-stdin: `{"sql": "SELECT * FROM tasks WHERE status='inbox'"}`
-stdout: 查询结果数组（仅 SELECT）
+## Usage Conventions
 
-### db-execute
-stdin: `{"sql": "UPDATE tasks SET priority=0 WHERE id=11"}`
-stdout: `{"changes": 1, "lastInsertRowid": 0}`
-
----
-
-## 使用约定
-
-1. **首次操作前执行 `get-philosophy`** — 理解 O/H 模式后再录入任务
-2. **完成任务用 `task-done`，不要用 `task-update` 设 status=done** — task-done 会自动设置 completed_at
-3. **创建任务默认进 inbox** — 除非用户明确指定 status
-4. **due_date 格式** — 传 ISO 日期字符串如 "2025-03-15"，内部转为 Unix 时间戳
-5. **使用 context 前先 `context-list`** — 避免重复创建相似的 context
-6. **waiting 状态配合 waiting_for** — 说明在等待什么人/事
-7. **冲刺任务优先于维护任务** — 有 Deadline 的项目永远排前面
+1. Use `done` command to complete tasks, not `update` with status=done — `done` sets completed_at automatically
+2. New tasks default to inbox — specify status only when needed
+3. Use `contexts` to discover existing tags before creating new ones
+4. Set `source` when creating tasks so the Web UI shows which agent created what
+5. Use `waiting` status with `waiting_for` to track blocked tasks

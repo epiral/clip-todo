@@ -1,0 +1,8 @@
+{
+  "name": "@pinix/todo",
+  "version": "1.0.0",
+  "description": "Task management for humans and agents. Create, track, and complete tasks through CLI, MCP, or Web UI.",
+  "runtime": "bun",
+  "main": "clip.ts",
+  "web": "web/"
+}

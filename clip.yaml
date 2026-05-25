@@ -1,5 +1,5 @@
 name: todo
-version: "2.0.0"
-description: "GTD task manager with Orchestrator philosophy. Run 'get-philosophy' command first to understand the O/H-mode design before operating."
+version: "1.0.0"
+description: "Task management for humans and agents. Create, track, and complete tasks through CLI, MCP, or Web UI."
 label: Todo
 hasWeb: true

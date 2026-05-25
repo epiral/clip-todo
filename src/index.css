@@ -22,15 +22,9 @@
   --color-p2: oklch(0.60 0.10 265);
   --color-p3: oklch(0.60 0 0);
   
-  /* GTD Context colors - Light Mode Defaults */
-  --color-ctx-orchestrator-bg: oklch(0.35 0.12 145);
-  --color-ctx-orchestrator-fg: oklch(1 0 0);
-  --color-ctx-human-bg: oklch(0.45 0.14 50);
-  --color-ctx-human-fg: oklch(1 0 0);
-
-  /* Sprint swimlane */
-  --color-sprint: oklch(0.60 0.22 40);
-  --color-sprint-header: oklch(0.65 0.18 50);
+  /* Context badge */
+  --color-ctx-bg: oklch(0.92 0.02 265);
+  --color-ctx-fg: oklch(0.3 0.05 265);
 
   /* Semantic aliases */
   --color-accent: oklch(0.55 0.18 25);
@@ -56,20 +50,15 @@
     --color-border: oklch(0.22 0 0);
     
     --color-checkbox-border: oklch(0.45 0 0);
-    
-    --color-ctx-orchestrator-bg: oklch(0.30 0.10 145);
-    --color-ctx-orchestrator-fg: oklch(0.85 0.08 145);
-    --color-ctx-human-bg: oklch(0.35 0.12 50);
-    --color-ctx-human-fg: oklch(0.90 0.10 50);
+
+    --color-ctx-bg: oklch(0.25 0.02 265);
+    --color-ctx-fg: oklch(0.80 0.05 265);
 
     /* Keep priorities bright enough in dark mode */
     --color-p0: oklch(0.65 0.20 25);
     --color-p1: oklch(0.65 0.15 145);
     --color-p2: oklch(0.70 0.10 265);
     --color-p3: oklch(0.70 0 0);
-    
-    --color-sprint: oklch(0.70 0.22 40);
-    --color-sprint-header: oklch(0.75 0.18 50);
 
     --color-accent: oklch(0.65 0.18 25);
     --color-danger: oklch(0.65 0.18 25);
@@ -120,10 +109,10 @@ input, select, textarea, button {
   }
 }
 
-/* Safe area fallback：WKWebView + ignoresSafeArea 时 env() 为 0，使用注入的 CSS 变量 */
+/* Safe area fallback */
 :root {
-  --sat: env(safe-area-inset-top, 59px);
-  --sab: env(safe-area-inset-bottom, 34px);
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 }

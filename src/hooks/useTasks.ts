@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { invoke, isBridge } from '../lib/bridge';
-import type { Task, RawTask, TaskStatus, TaskPriority } from '../types';
+import { invoke, isLocalStorageMode } from '../lib/bridge';
+import type { Task, TaskStatus, TaskPriority } from '../types';
 
-const LS_KEY = 'gtd-tasks';
+const LS_KEY = 'todo-tasks';
 
 function lsRead(): Task[] {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
@@ -15,34 +15,26 @@ function lsWrite(tasks: Task[]) {
 
 let nextId = Date.now();
 
-function parseRaw(r: RawTask): Task {
-  return {
-    ...r,
-    context: r.context || '',
-    priority: (r.priority ?? 1) as TaskPriority,
-    status: (r.status || 'inbox') as TaskStatus,
-    waiting_for: r.waiting_for || '',
-    notes: r.notes || '',
-  };
+function genId(): string {
+  return (nextId++).toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-/** Unix timestamp → "YYYY-MM-DD" (local time) for command stdin */
-function tsToDateStr(ts: number): string {
-  const d = new Date(ts * 1000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function nowSec(): number {
+  return Math.floor(Date.now() / 1000);
 }
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const useBridgeRef = useRef(false);
+  const useLS = useRef(false);
 
   const load = useCallback(async () => {
-    if (useBridgeRef.current) {
+    if (!useLS.current) {
       try {
-        const rows = await invoke<RawTask[]>('task-list', { include_done: true });
-        setTasks(rows.map(parseRaw));
-      } catch (e) {
-        console.error('[tasks] query failed:', e);
+        const rows = await invoke<Task[]>('list', { include_done: true });
+        setTasks(rows);
+      } catch {
+        // Backend not available, fall back to localStorage
+        useLS.current = true;
         setTasks(lsRead());
       }
     } else {
@@ -51,41 +43,34 @@ export function useTasks() {
   }, []);
 
   useEffect(() => {
-    if (isBridge()) useBridgeRef.current = true;
+    if (isLocalStorageMode()) useLS.current = true;
     load();
   }, [load]);
 
   const add = useCallback(async (title: string) => {
     const t = title.trim();
     if (!t) return;
-    if (useBridgeRef.current) {
-      await invoke('task-create', { title: t });
+    if (!useLS.current) {
+      await invoke('add', { title: t });
     } else {
-      const now = Math.floor(Date.now() / 1000);
       const list = lsRead();
       list.unshift({
-        id: nextId++, project_id: null, title: t, notes: '', context: '',
-        priority: 1, due_date: null, status: 'inbox', waiting_for: '',
-        completed_at: null, created_at: now,
+        id: genId(), title: t, status: 'inbox' as TaskStatus, priority: 1 as TaskPriority,
+        context: '', project: '', notes: '', waiting_for: '', due_date: null,
+        source: 'user', created_at: nowSec(), completed_at: null,
       });
       lsWrite(list);
     }
     await load();
   }, [load]);
 
-  const update = useCallback(async (id: number, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => {
-    if (useBridgeRef.current) {
+  const update = useCallback(async (id: string, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => {
+    if (!useLS.current) {
       const payload: Record<string, unknown> = { id };
       for (const [key, val] of Object.entries(fields)) {
-        if (val !== undefined) {
-          if (key === 'due_date' && typeof val === 'number') {
-            payload[key] = tsToDateStr(val);
-          } else {
-            payload[key] = val;
-          }
-        }
+        if (val !== undefined) payload[key] = val;
       }
-      await invoke('task-update', payload);
+      await invoke('update', payload);
     } else {
       const list = lsRead().map((t) => t.id === id ? { ...t, ...fields } : t);
       lsWrite(list);
@@ -93,22 +78,21 @@ export function useTasks() {
     await load();
   }, [load]);
 
-  const complete = useCallback(async (id: number) => {
-    if (useBridgeRef.current) {
-      await invoke('task-done', { id });
+  const complete = useCallback(async (id: string) => {
+    if (!useLS.current) {
+      await invoke('done', { id });
     } else {
-      const now = Math.floor(Date.now() / 1000);
       const list = lsRead().map((t) =>
-        t.id === id ? { ...t, status: 'done' as TaskStatus, completed_at: now } : t
+        t.id === id ? { ...t, status: 'done' as TaskStatus, completed_at: nowSec() } : t
       );
       lsWrite(list);
     }
     await load();
   }, [load]);
 
-  const uncomplete = useCallback(async (id: number) => {
-    if (useBridgeRef.current) {
-      await invoke('task-undone', { id });
+  const uncomplete = useCallback(async (id: string) => {
+    if (!useLS.current) {
+      await invoke('update', { id, status: 'inbox' as TaskStatus, completed_at: null });
     } else {
       const list = lsRead().map((t) =>
         t.id === id ? { ...t, status: 'inbox' as TaskStatus, completed_at: null } : t
@@ -118,9 +102,9 @@ export function useTasks() {
     await load();
   }, [load]);
 
-  const remove = useCallback(async (id: number) => {
-    if (useBridgeRef.current) {
-      await invoke('task-delete', { id });
+  const remove = useCallback(async (id: string) => {
+    if (!useLS.current) {
+      await invoke('remove', { id });
     } else {
       lsWrite(lsRead().filter((t) => t.id !== id));
     }

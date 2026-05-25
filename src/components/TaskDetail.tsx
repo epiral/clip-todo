@@ -6,8 +6,8 @@ interface Props {
   task: Task;
   projects: Project[];
   contexts: string[];
-  onUpdate: (id: number, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => void;
-  onRemove: (id: number) => void;
+  onUpdate: (id: string, fields: Partial<Omit<Task, 'id' | 'created_at'>>) => void;
+  onRemove: (id: string) => void;
   onClose: () => void;
 }
 
@@ -19,25 +19,12 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'done', label: 'Done' },
 ];
 
-const PRIORITY_OPTIONS: { value: TaskPriority; label: string; color: string }[] = [
-  { value: 0, label: 'P0 Urgent', color: 'text-p0' },
-  { value: 1, label: 'P1 High', color: 'text-p1' },
-  { value: 2, label: 'P2 Medium', color: 'text-p2' },
-  { value: 3, label: 'P3 Low', color: 'text-p3' },
+const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
+  { value: 0, label: 'P0 Urgent' },
+  { value: 1, label: 'P1 High' },
+  { value: 2, label: 'P2 Medium' },
+  { value: 3, label: 'P3 Low' },
 ];
-
-
-function tsToDateStr(ts: number | null): string {
-  if (ts == null) return '';
-  const d = new Date(ts * 1000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function dateStrToTs(s: string): number | null {
-  if (!s) return null;
-  const d = new Date(s + 'T00:00:00');
-  return Math.floor(d.getTime() / 1000);
-}
 
 export default function TaskDetail({ task, projects, contexts, onUpdate, onRemove, onClose }: Props) {
   const [title, setTitle] = useState(task.title);
@@ -63,7 +50,7 @@ export default function TaskDetail({ task, projects, contexts, onUpdate, onRemov
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
-          <span className="text-[10px] text-muted/60 font-mono tracking-tighter uppercase font-bold">Entry ID // {task.id}</span>
+          <span className="text-[10px] text-muted/60 font-mono tracking-tighter uppercase font-bold">ID // {task.id}</span>
           <button
             className="text-foreground hover:bg-surface-hover transition-colors p-1 border border-border"
             onClick={onClose}
@@ -126,15 +113,12 @@ export default function TaskDetail({ task, projects, contexts, onUpdate, onRemov
           <FieldGroup label="Project">
             <select
               className="w-full px-0 py-1.5 text-xs font-bold uppercase tracking-widest bg-transparent border-none border-b border-border text-foreground outline-none appearance-none cursor-pointer"
-              value={task.project_id ?? ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                save({ project_id: v ? Number(v) : null });
-              }}
+              value={task.project ?? ''}
+              onChange={(e) => save({ project: e.target.value })}
             >
               <option value="">NONE</option>
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>
+                <option key={p.id} value={p.name}>{p.name.toUpperCase()}</option>
               ))}
             </select>
           </FieldGroup>
@@ -145,8 +129,8 @@ export default function TaskDetail({ task, projects, contexts, onUpdate, onRemov
             <input
               type="date"
               className="w-full px-0 py-1.5 text-xs font-bold bg-transparent border-none border-b border-border text-foreground outline-none"
-              value={tsToDateStr(task.due_date)}
-              onChange={(e) => save({ due_date: dateStrToTs(e.target.value) })}
+              value={task.due_date || ''}
+              onChange={(e) => save({ due_date: e.target.value || null })}
             />
           </FieldGroup>
 
@@ -176,10 +160,10 @@ export default function TaskDetail({ task, projects, contexts, onUpdate, onRemov
 
         <button
           className="w-full mt-10 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-danger border border-danger bg-transparent hover:bg-danger hover:text-background transition-colors flex items-center justify-center gap-2"
-          onClick={() => { if(confirm('Permanently remove this entry?')) { onRemove(task.id); onClose(); } }}
+          onClick={() => { if(confirm('Permanently delete this task?')) { onRemove(task.id); onClose(); } }}
         >
           <Trash2 size={12} />
-          Destroy Entry
+          Delete Task
         </button>
       </div>
     </div>
