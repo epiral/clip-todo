@@ -44,9 +44,9 @@ export default function TaskDetail({ task, projects, contexts, onUpdate, onRemov
   };
 
   return (
-    <div className="fixed inset-0 bg-foreground/10 backdrop-blur-[2px] z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-foreground/10 backdrop-blur-[2px] z-50 flex items-end md:items-stretch justify-center md:justify-end" onClick={onClose}>
       <div
-        className="bg-background w-full max-w-[480px] max-h-[90dvh] overflow-y-auto border-t-4 border-foreground shadow-none p-6 pb-[max(24px,env(safe-area-inset-bottom))]"
+        className="bg-background w-full max-w-[480px] max-h-[90dvh] md:max-h-full md:h-full overflow-y-auto border-t-4 md:border-t-0 md:border-l-4 border-foreground shadow-none p-6 pb-[max(24px,env(safe-area-inset-bottom))] md:pb-12"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
